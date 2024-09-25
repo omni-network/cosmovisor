@@ -38,6 +38,8 @@ const (
 	EnvTimeFormatLogs           = "COSMOVISOR_TIMEFORMAT_LOGS"
 	EnvCustomPreupgrade         = "COSMOVISOR_CUSTOM_PREUPGRADE"
 	EnvDisableRecase            = "COSMOVISOR_DISABLE_RECASE"
+	EnvCustomCurrentLink        = "COSMOVISOR_CUSTOM_CURRENT_LINK"
+	EnvCustomRoot               = "COSMOVISOR_CUSTOM_ROOT"
 )
 
 const (
@@ -68,6 +70,8 @@ type Config struct {
 	TimeFormatLogs           string        `toml:"cosmovisor_timeformat_logs" mapstructure:"cosmovisor_timeformat_logs" default:"kitchen"`
 	CustomPreUpgrade         string        `toml:"cosmovisor_custom_preupgrade" mapstructure:"cosmovisor_custom_preupgrade" default:""`
 	DisableRecase            bool          `toml:"cosmovisor_disable_recase" mapstructure:"cosmovisor_disable_recase" default:"false"`
+	CustomCurrentLink        string        `toml:"cosmovisor_custom_current_link" mapstructure:"cosmovisor_custom_current_link"`
+	CustomRoot               string        `toml:"cosmovisor_custom_root" mapstructure:"cosmovisor_custom_root"`
 
 	// currently running upgrade
 	currentUpgrade upgradetypes.Plan
@@ -75,7 +79,20 @@ type Config struct {
 
 // Root returns the root directory where all info lives
 func (cfg *Config) Root() string {
+	if cfg.CustomRoot != "" {
+		return cfg.CustomRoot
+	}
+
 	return filepath.Join(cfg.Home, rootName)
+}
+
+// CurrentLink returns the path of the current link
+func (cfg *Config) CurrentLink() string {
+	if cfg.CustomCurrentLink != "" {
+		return cfg.CustomCurrentLink
+	}
+
+	return filepath.Join(cfg.Root(), currentLink)
 }
 
 // DefaultCfgPath returns the default path to the configuration file.
@@ -112,7 +129,7 @@ func (cfg *Config) UpgradeInfoFilePath() string {
 // SymLinkToGenesis creates a symbolic link from "./current" to the genesis directory.
 func (cfg *Config) SymLinkToGenesis() (string, error) {
 	genesis := filepath.Join(cfg.Root(), genesisDir)
-	link := filepath.Join(cfg.Root(), currentLink)
+	link := cfg.CurrentLink()
 
 	if err := os.Symlink(genesis, link); err != nil {
 		return "", err
@@ -131,7 +148,7 @@ func (cfg *Config) WaitRestartDelay() {
 // CurrentBin is the path to the currently selected binary (genesis if no link is set)
 // This will resolve the symlink to the underlying directory to make it easier to debug
 func (cfg *Config) CurrentBin() (string, error) {
-	cur := filepath.Join(cfg.Root(), currentLink)
+	cur := cfg.CurrentLink()
 	// if nothing here, fallback to genesis
 	info, err := os.Lstat(cur)
 	if err != nil {
@@ -207,10 +224,12 @@ func GetConfigFromFile(filePath string) (*Config, error) {
 func GetConfigFromEnv(skipValidate bool) (*Config, error) {
 	var errs []error
 	cfg := &Config{
-		Home:             os.Getenv(EnvHome),
-		Name:             os.Getenv(EnvName),
-		DataBackupPath:   os.Getenv(EnvDataBackupPath),
-		CustomPreUpgrade: os.Getenv(EnvCustomPreupgrade),
+		Home:              os.Getenv(EnvHome),
+		Name:              os.Getenv(EnvName),
+		DataBackupPath:    os.Getenv(EnvDataBackupPath),
+		CustomPreUpgrade:  os.Getenv(EnvCustomPreupgrade),
+		CustomCurrentLink: os.Getenv(EnvCustomCurrentLink),
+		CustomRoot:        os.Getenv(EnvCustomRoot),
 	}
 
 	if cfg.DataBackupPath == "" {
@@ -378,7 +397,7 @@ func (cfg *Config) SetCurrentUpgrade(u upgradetypes.Plan) (rerr error) {
 	}
 
 	// set a symbolic link
-	link := filepath.Join(cfg.Root(), currentLink)
+	link := cfg.CurrentLink()
 	safeName := url.PathEscape(u.Name)
 	upgrade := filepath.Join(cfg.Root(), upgradesDir, safeName)
 
@@ -420,7 +439,7 @@ func (cfg *Config) UpgradeInfo() (upgradetypes.Plan, error) {
 		return cfg.currentUpgrade, nil
 	}
 
-	filename := filepath.Join(cfg.Root(), currentLink, upgradetypes.UpgradeInfoFilename)
+	filename := filepath.Join(cfg.CurrentLink(), upgradetypes.UpgradeInfoFilename)
 	_, err := os.Lstat(filename)
 	var u upgradetypes.Plan
 	var bz []byte
@@ -547,6 +566,8 @@ func (cfg Config) DetailString() string {
 		{EnvColorLogs, fmt.Sprintf("%t", cfg.ColorLogs)},
 		{EnvTimeFormatLogs, cfg.TimeFormatLogs},
 		{EnvCustomPreupgrade, cfg.CustomPreUpgrade},
+		{EnvCustomCurrentLink, cfg.CustomCurrentLink},
+		{EnvCustomRoot, cfg.CustomRoot},
 		{EnvDisableRecase, fmt.Sprintf("%t", cfg.DisableRecase)},
 	}
 

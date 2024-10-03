@@ -72,26 +72,34 @@ func (l Launcher) Run(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 		return false, err
 	}
 
+	l.logger.Info("app exited needing upgrade",
+		"path", bin,
+		"upgrade", l.fw.currentInfo.Name,
+		"height", l.fw.currentInfo.Height,
+	)
+
 	if !IsSkipUpgradeHeight(args, l.fw.currentInfo) {
 		l.cfg.WaitRestartDelay()
 
 		if err := l.doBackup(); err != nil {
-			return false, err
+			return false, fmt.Errorf("do backup: %w", err)
 		}
 
 		if err := l.doCustomPreUpgrade(); err != nil {
-			return false, err
+			return false, fmt.Errorf("do custom preupgrade: %w", err)
 		}
 
 		if err := UpgradeBinary(l.logger, l.cfg, l.fw.currentInfo); err != nil {
-			return false, err
+			return false, fmt.Errorf("upgrade binary: %w", err)
 		}
 
 		if err = l.doPreUpgrade(); err != nil {
-			return false, err
+			return false, fmt.Errorf("do preupgrade: %w", err)
 		}
 
 		return true, nil
+	} else {
+		l.logger.Info("skipping upgrade for height", "height", l.fw.currentInfo.Height)
 	}
 
 	return false, nil
@@ -302,7 +310,7 @@ func (l *Launcher) executePreUpgradeCmd() error {
 
 	result, err := exec.Command(bin, "pre-upgrade").Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("execute pre-upgrade: %w: %s", err, result)
 	}
 
 	l.logger.Info("pre-upgrade result", "result", result)

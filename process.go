@@ -68,8 +68,10 @@ func (l Launcher) Run(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 		}
 	}()
 
-	if needsUpdate, err := l.WaitForUpgradeOrExit(cmd); err != nil || !needsUpdate {
-		return false, err
+	if needsUpdate, err := l.WaitForUpgradeOrExit(cmd); err != nil {
+		return false, fmt.Errorf("wait for upgrade: %w", err)
+	} else if !needsUpdate {
+		return false, nil
 	}
 
 	l.logger.Info("app exited needing upgrade",

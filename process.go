@@ -59,12 +59,20 @@ func (l Launcher) Run(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	}
 
 	sigs := make(chan os.Signal, 1)
+	done := make(chan struct{})
+	defer close(done)
+
 	signal.Notify(sigs, syscall.SIGQUIT, syscall.SIGTERM)
 	go func() {
-		sig := <-sigs
-		if err := cmd.Process.Signal(sig); err != nil {
-			l.logger.Error("terminated", "error", err, "bin", bin)
-			os.Exit(1)
+		select {
+		case <-done:
+			return
+		case sig := <-sigs:
+			l.logger.Info("received signal", "sig", sig)
+			if err := cmd.Process.Signal(sig); err != nil {
+				l.logger.Error("sending signal failed", "error", err, "bin", bin)
+				os.Exit(1)
+			}
 		}
 	}()
 

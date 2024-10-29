@@ -40,6 +40,7 @@ type cosmovisorEnv struct {
 	TimeFormatLogs           string
 	CustomPreupgrade         string
 	CustomCurrentLink        string
+	CustomCurrentUpgradeInfo string
 	CustomRoot               string
 	DisableRecase            string
 	ShutdownGrace            string
@@ -69,6 +70,7 @@ func (c cosmovisorEnv) ToMap() map[string]envMap {
 		EnvTimeFormatLogs:           {val: c.TimeFormatLogs, allowEmpty: true},
 		EnvCustomPreupgrade:         {val: c.CustomPreupgrade, allowEmpty: true},
 		EnvCustomCurrentLink:        {val: c.CustomCurrentLink, allowEmpty: true},
+		EnvCustomCurrentUpgradeInfo: {val: c.CustomCurrentUpgradeInfo, allowEmpty: true},
 		EnvCustomRoot:               {val: c.CustomRoot, allowEmpty: true},
 		EnvDisableRecase:            {val: c.DisableRecase, allowEmpty: true},
 	}
@@ -109,6 +111,8 @@ func (c *cosmovisorEnv) Set(envVar, envVal string) {
 		c.CustomPreupgrade = envVal
 	case EnvCustomCurrentLink:
 		c.CustomCurrentLink = envVal
+	case EnvCustomCurrentUpgradeInfo:
+		c.CustomCurrentUpgradeInfo = envVal
 	case EnvCustomRoot:
 		c.CustomRoot = envVal
 	case EnvDisableRecase:

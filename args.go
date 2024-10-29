@@ -39,6 +39,7 @@ const (
 	EnvCustomPreupgrade         = "COSMOVISOR_CUSTOM_PREUPGRADE"
 	EnvDisableRecase            = "COSMOVISOR_DISABLE_RECASE"
 	EnvCustomCurrentLink        = "COSMOVISOR_CUSTOM_CURRENT_LINK"
+	EnvCustomCurrentUpgradeInfo = "COSMOVISOR_CUSTOM_CURRENT_UPGRADEINFO"
 	EnvCustomRoot               = "COSMOVISOR_CUSTOM_ROOT"
 )
 
@@ -71,6 +72,7 @@ type Config struct {
 	CustomPreUpgrade         string        `toml:"cosmovisor_custom_preupgrade" mapstructure:"cosmovisor_custom_preupgrade" default:""`
 	DisableRecase            bool          `toml:"cosmovisor_disable_recase" mapstructure:"cosmovisor_disable_recase" default:"false"`
 	CustomCurrentLink        string        `toml:"cosmovisor_custom_current_link" mapstructure:"cosmovisor_custom_current_link"`
+	CustomCurrentUpgradeInfo string        `toml:"cosmovisor_custom_current_upgradeinfo" mapstructure:"cosmovisor_custom_current_upgradeinfo"`
 	CustomRoot               string        `toml:"cosmovisor_custom_root" mapstructure:"cosmovisor_custom_root"`
 
 	// currently running upgrade
@@ -93,6 +95,15 @@ func (cfg *Config) CurrentLink() string {
 	}
 
 	return filepath.Join(cfg.Root(), currentLink)
+}
+
+// CurrentUpgradeInfo returns the path of the current upgrade info file
+func (cfg *Config) CurrentUpgradeInfo() string {
+	if cfg.CustomCurrentUpgradeInfo != "" {
+		return cfg.CustomCurrentUpgradeInfo
+	}
+
+	return filepath.Join(cfg.CurrentLink(), upgradetypes.UpgradeInfoFilename)
 }
 
 // DefaultCfgPath returns the default path to the configuration file.
@@ -224,12 +235,13 @@ func GetConfigFromFile(filePath string) (*Config, error) {
 func GetConfigFromEnv(skipValidate bool) (*Config, error) {
 	var errs []error
 	cfg := &Config{
-		Home:              os.Getenv(EnvHome),
-		Name:              os.Getenv(EnvName),
-		DataBackupPath:    os.Getenv(EnvDataBackupPath),
-		CustomPreUpgrade:  os.Getenv(EnvCustomPreupgrade),
-		CustomCurrentLink: os.Getenv(EnvCustomCurrentLink),
-		CustomRoot:        os.Getenv(EnvCustomRoot),
+		Home:                     os.Getenv(EnvHome),
+		Name:                     os.Getenv(EnvName),
+		DataBackupPath:           os.Getenv(EnvDataBackupPath),
+		CustomPreUpgrade:         os.Getenv(EnvCustomPreupgrade),
+		CustomCurrentLink:        os.Getenv(EnvCustomCurrentLink),
+		CustomCurrentUpgradeInfo: os.Getenv(EnvCustomCurrentUpgradeInfo),
+		CustomRoot:               os.Getenv(EnvCustomRoot),
 	}
 
 	if cfg.DataBackupPath == "" {
@@ -414,7 +426,7 @@ func (cfg *Config) SetCurrentUpgrade(u upgradetypes.Plan) (rerr error) {
 	}
 
 	cfg.currentUpgrade = u
-	f, err := os.Create(filepath.Join(upgrade, upgradetypes.UpgradeInfoFilename))
+	f, err := os.Create(cfg.CurrentUpgradeInfo())
 	if err != nil {
 		return err
 	}
@@ -439,7 +451,7 @@ func (cfg *Config) UpgradeInfo() (upgradetypes.Plan, error) {
 		return cfg.currentUpgrade, nil
 	}
 
-	filename := filepath.Join(cfg.CurrentLink(), upgradetypes.UpgradeInfoFilename)
+	filename := cfg.CurrentUpgradeInfo()
 	_, err := os.Lstat(filename)
 	var u upgradetypes.Plan
 	var bz []byte
@@ -567,6 +579,7 @@ func (cfg Config) DetailString() string {
 		{EnvTimeFormatLogs, cfg.TimeFormatLogs},
 		{EnvCustomPreupgrade, cfg.CustomPreUpgrade},
 		{EnvCustomCurrentLink, cfg.CustomCurrentLink},
+		{EnvCustomCurrentUpgradeInfo, cfg.CustomCurrentUpgradeInfo},
 		{EnvCustomRoot, cfg.CustomRoot},
 		{EnvDisableRecase, fmt.Sprintf("%t", cfg.DisableRecase)},
 	}

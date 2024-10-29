@@ -127,6 +127,9 @@ func (l Launcher) WaitForUpgradeOrExit(cmd *exec.Cmd) (bool, error) {
 	if err != nil {
 		// upgrade info not found do nothing
 		currentUpgrade = upgradetypes.Plan{}
+		l.logger.Info("no previous upgrade info found")
+	} else {
+		l.logger.Info("found previous upgrade info", "name", currentUpgrade.Name)
 	}
 
 	cmdDone := make(chan error)

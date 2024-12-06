@@ -41,6 +41,7 @@ const (
 	EnvCustomCurrentLink        = "COSMOVISOR_CUSTOM_CURRENT_LINK"
 	EnvCustomCurrentUpgradeInfo = "COSMOVISOR_CUSTOM_CURRENT_UPGRADEINFO"
 	EnvCustomRoot               = "COSMOVISOR_CUSTOM_ROOT"
+	EnvCustomGenesis            = "COSMOVISOR_CUSTOM_GENESIS"
 )
 
 const (
@@ -74,6 +75,7 @@ type Config struct {
 	CustomCurrentLink        string        `toml:"cosmovisor_custom_current_link" mapstructure:"cosmovisor_custom_current_link"`
 	CustomCurrentUpgradeInfo string        `toml:"cosmovisor_custom_current_upgradeinfo" mapstructure:"cosmovisor_custom_current_upgradeinfo"`
 	CustomRoot               string        `toml:"cosmovisor_custom_root" mapstructure:"cosmovisor_custom_root"`
+	CustomGenesis            string        `toml:"cosmovisor_custom_genesis" mapstructure:"cosmovisor_custom_genesis"`
 
 	// currently running upgrade
 	currentUpgrade upgradetypes.Plan
@@ -242,6 +244,7 @@ func GetConfigFromEnv(skipValidate bool) (*Config, error) {
 		CustomCurrentLink:        os.Getenv(EnvCustomCurrentLink),
 		CustomCurrentUpgradeInfo: os.Getenv(EnvCustomCurrentUpgradeInfo),
 		CustomRoot:               os.Getenv(EnvCustomRoot),
+		CustomGenesis:            os.Getenv(EnvCustomGenesis),
 	}
 
 	if cfg.DataBackupPath == "" {
@@ -581,6 +584,7 @@ func (cfg Config) DetailString() string {
 		{EnvCustomCurrentLink, cfg.CustomCurrentLink},
 		{EnvCustomCurrentUpgradeInfo, cfg.CustomCurrentUpgradeInfo},
 		{EnvCustomRoot, cfg.CustomRoot},
+		{EnvCustomGenesis, cfg.CustomGenesis},
 		{EnvDisableRecase, fmt.Sprintf("%t", cfg.DisableRecase)},
 	}
 

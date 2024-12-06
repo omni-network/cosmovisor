@@ -28,6 +28,10 @@ type Launcher struct {
 }
 
 func NewLauncher(logger log.Logger, cfg *Config) (Launcher, error) {
+	if err := maybeInitCustomGenesis(logger, cfg); err != nil {
+		return Launcher{}, fmt.Errorf("init custom genesis: %w", err)
+	}
+
 	fw, err := newUpgradeFileWatcher(cfg)
 	if err != nil {
 		return Launcher{}, err
@@ -328,6 +332,25 @@ func (l *Launcher) executePreUpgradeCmd() error {
 
 	l.logger.Info("pre-upgrade result", "result", result)
 	return nil
+}
+
+// maybeInitCustomGenesis initializes the custom genesis upgrade if configured.
+// This basically run a non-genesis-binary from genesis.
+func maybeInitCustomGenesis(logger log.Logger, cfg *Config) error {
+	// Don't init custom genesis if not configured or if current link exists.
+	if cfg.CustomGenesis == "" {
+		return nil // Not configured
+	} else if _, err := os.Lstat(cfg.CurrentLink()); err == nil {
+		return nil // Current link exists
+	}
+
+	logger.Info("initializing custom genesis upgrade", "genesis", cfg.CustomGenesis)
+
+	// Create current link to custom genesis
+	return cfg.SetCurrentUpgrade(upgradetypes.Plan{
+		Name:   cfg.CustomGenesis,
+		Height: 1, // Custom genesis is always at height 1
+	})
 }
 
 // IsSkipUpgradeHeight checks if pre-upgrade script must be run.

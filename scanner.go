@@ -85,7 +85,7 @@ func (fw *fileWatcher) MonitorUpdate(currentUpgrade upgradetypes.Plan) <-chan st
 		for {
 			select {
 			case <-fw.ticker.C:
-				if fw.CheckUpdate(currentUpgrade) {
+				if ok, _ := fw.CheckUpdate(currentUpgrade); ok {
 					done <- struct{}{}
 					return
 				}
@@ -102,15 +102,15 @@ func (fw *fileWatcher) MonitorUpdate(currentUpgrade upgradetypes.Plan) <-chan st
 // CheckUpdate reads update plan from file and checks if there is a new update request
 // currentName is the name of currently running upgrade. The check is rejected if it finds
 // an upgrade with the same name.
-func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) bool {
+func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) (bool, string) {
 	if fw.needsUpdate {
-		return true
+		return true, ""
 	}
 
 	stat, err := os.Stat(fw.filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return false
+			return false, fw.filename + " does not exist"
 		} else {
 			panic(fmt.Errorf("failed to stat upgrade info file: %w", err))
 		}
@@ -124,7 +124,7 @@ func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) bool {
 			stat, err = os.Stat(fw.filename)
 			if err != nil {
 				if os.IsNotExist(err) {
-					return false
+					return false, fw.filename + " does not exist (anymore)"
 				} else {
 					panic(fmt.Errorf("failed to stat upgrade info file: %w", err))
 				}
@@ -135,12 +135,12 @@ func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) bool {
 		}
 	}
 	if stat.Size() == 0 {
-		return false
+		return false, fw.filename + " still empty"
 	}
 
 	// no update if the file already exists and has not been modified
 	if !stat.ModTime().After(fw.lastModTime) {
-		return false
+		return false, fw.filename + " not updated"
 	}
 
 	info, err := parseUpgradeInfoFile(fw.filename, fw.disableRecase)
@@ -151,7 +151,7 @@ func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) bool {
 	// file exist but too early in height
 	currentHeight, _ := fw.checkHeight()
 	if currentHeight != 0 && currentHeight < info.Height {
-		return false
+		return false, "current height is less than upgrade height"
 	}
 
 	if !fw.initialized {
@@ -165,7 +165,7 @@ func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) bool {
 		// name (read from the cosmovisor file) with the upgrade info.
 		if !strings.EqualFold(currentUpgrade.Name, fw.currentInfo.Name) {
 			fw.needsUpdate = true
-			return true
+			return true, ""
 		}
 	}
 
@@ -173,10 +173,10 @@ func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) bool {
 		fw.currentInfo = info
 		fw.lastModTime = stat.ModTime()
 		fw.needsUpdate = true
-		return true
+		return true, ""
 	}
 
-	return false
+	return false, "upgrade height is less than prev height"
 }
 
 // checkHeight checks if the current block height

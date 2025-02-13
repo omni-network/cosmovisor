@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 )
 
 type fileWatcher struct {
+	mu sync.Mutex
+
 	daemonHome string
 	filename   string // full path to a watched file
 	interval   time.Duration
@@ -103,6 +106,9 @@ func (fw *fileWatcher) MonitorUpdate(currentUpgrade upgradetypes.Plan) <-chan st
 // currentName is the name of currently running upgrade. The check is rejected if it finds
 // an upgrade with the same name.
 func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) (bool, string) {
+	fw.mu.Lock()
+	defer fw.mu.Unlock()
+	
 	if fw.needsUpdate {
 		return true, ""
 	}
@@ -176,7 +182,8 @@ func (fw *fileWatcher) CheckUpdate(currentUpgrade upgradetypes.Plan) (bool, stri
 		return true, ""
 	}
 
-	return false, "upgrade height is less than prev height"
+	return false, fmt.Sprintf("upgrade height (%s:%d) not after current (%s:%d)",
+		info.Name, info.Height, currentUpgrade.Name, currentUpgrade.Height)
 }
 
 // checkHeight checks if the current block height
